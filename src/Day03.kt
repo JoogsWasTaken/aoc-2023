@@ -18,11 +18,10 @@ fun main() {
         return adjacentPoints
     }
 
-    fun part1(input: List<String>): Int {
+    fun parseInput(input: List<String>): Pair<Map<Point2, Char>, Map<Point2, Char>> {
         val digits = "0123456789"
         val pointToDigitMap = mutableMapOf<Point2, Char>()
-        val consideredDigitPointList = mutableListOf<Point2>()
-        val symbolPointList = mutableListOf<Point2>()
+        val pointToSymbolMap = mutableMapOf<Point2, Char>()
 
         input.forEachIndexed { yCoord, line ->
             line.forEachIndexed { xCoord, char ->
@@ -31,11 +30,19 @@ fun main() {
                 if (digits.contains(char)) {
                     pointToDigitMap[thisPoint] = char
                 } else if (char != '.') {
-                    symbolPointList.add(thisPoint)
+                    pointToSymbolMap[thisPoint] = char
                 }
             }
         }
 
+        return Pair(pointToDigitMap, pointToSymbolMap)
+    }
+
+    fun part1(input: List<String>): Int {
+        val (pointToDigitMap, pointToSymbolMap) = parseInput(input)
+        val symbolPointList = pointToSymbolMap.keys
+
+        val consideredDigitPointList = mutableListOf<Point2>()
         val numberList = mutableListOf<Int>()
 
         // get all symbols
@@ -108,10 +115,91 @@ fun main() {
     }
 
     fun part2(input: List<String>): Int {
-        return 0
+        val (pointToDigitMap, pointToSymbolMap) = parseInput(input)
+        // keep only the points that map to a gear (*)
+        val gearPointList = pointToSymbolMap.filter { (_, v) -> v == '*' }.keys
+        // keep track of all points that have been visited
+        val consideredDigitPointList = mutableListOf<Point2>()
+
+        // tally up all gear ratios
+        var totalGearRatio = 0
+
+        // iterate over the points for gears
+        for (gearPoint in gearPointList) {
+            // keep track of numbers that are adjacent to this gear
+            val numberList = mutableListOf<Int>()
+
+            // iterate over the adjacent points
+            for (adjacentPoint in getAdjacentPoints(gearPoint)) {
+                // skip if already visited
+                if (consideredDigitPointList.contains(adjacentPoint)) continue
+
+                // skip if there's no digit at this point
+                if (!pointToDigitMap.containsKey(adjacentPoint)) continue
+
+                // mark point as visited
+                consideredDigitPointList.add(adjacentPoint)
+
+                // start the number string
+                val charAtPoint = pointToDigitMap[adjacentPoint]
+                var numberStr = "$charAtPoint"
+
+                // setup stuff for loop
+                var offset = 1
+                var prevEnd = false
+                var nextEnd = false
+
+                // literally the same code as above
+                while (true) {
+                    // determine neighboring points
+                    val prevPoint = Point2(adjacentPoint.first - offset, adjacentPoint.second)
+                    val nextPoint = Point2(adjacentPoint.first + offset, adjacentPoint.second)
+
+                    val prevChar = pointToDigitMap[prevPoint]
+                    val nextChar = pointToDigitMap[nextPoint]
+
+                    // check if we hit a non-digit at the start
+                    if (prevChar == null && !prevEnd) {
+                        prevEnd = true
+                    }
+
+                    // check if we hit a non-digit at the end
+                    if (nextChar == null && !nextEnd) {
+                        nextEnd = true
+                    }
+
+                    // break if both ends have been reached
+                    if (prevEnd && nextEnd) break
+
+                    // prepend digit
+                    if (!prevEnd) {
+                        numberStr = "$prevChar$numberStr"
+                        consideredDigitPointList.add(prevPoint)
+                    }
+
+                    // append digit
+                    if (!nextEnd) {
+                        numberStr = "$numberStr$nextChar"
+                        consideredDigitPointList.add(nextPoint)
+                    }
+
+                    offset++
+                }
+
+                numberList.add(numberStr.toInt())
+            }
+
+            // there must be exactly two numbers around this gear
+            if (numberList.size != 2) continue
+
+            totalGearRatio += numberList[0] * numberList[1]
+        }
+
+        return totalGearRatio
     }
 
     check(part1(readInput("Day03_test")) == 4361)
+    check(part2(readInput("Day03_test")) == 467835)
 
     val input = readInput("Day03")
 
